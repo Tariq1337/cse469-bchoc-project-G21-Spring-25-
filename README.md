@@ -1,79 +1,155 @@
-CSE 469: Blockchain Chain of Custody (bchoc)
+# 📦 CSE 469 – Blockchain Chain of Custody (bchoc)
 
-This is a Track 1 (Programming Language-Based) solution for the CSE 469 group project. It is a command-line program, bchoc, that implements a secure chain of custody log for forensic evidence using a custom, file-based blockchain.
+A **Track 1 (Programming Language-Based)** project implementing a secure, file-based blockchain for managing forensic evidence chain of custody.  
+Written in **Python 3**, this command-line tool (`bchoc`) supports full evidence lifecycle management, integrity verification, and audit-ready logging.
 
-The program is written in Python 3.
+---
 
-Group Members
+## 👥 Group Members
 
-Tariq Bahaaaldeen
+| Name | Role |
+|------|------|
+| Tariq Bahaaaldeen | Developer |
+| Abhinav Ranish | Developer |
+| Raiden Ison | Developer |
+| Hansel Kunaseelan Nadar | Developer |
 
-Abhinav Ranish
+---
 
-Raiden Ison
+## 📘 Overview
 
-Hansel Kunaseelan Nadar
+`bchoc` maintains a tamper-evident blockchain log for forensic evidence.  
+All transactions (add, check-in, check-out, remove, etc.) are appended as immutable blocks, ensuring strong auditability.
 
-Program Description
+The system supports **10 core commands**, covering the entire chain-of-custody lifecycle.
 
-This program implements all 10 required commands for managing and verifying the chain of custody:
+---
 
-init: Initializes a new blockchain file with a Genesis block.
+## 🔧 Implemented Commands
 
-add: Adds one or more new evidence items to a case (requires creator password).
+| Command        | Description                                               | Password Required |
+|----------------|-----------------------------------------------------------|-------------------|
+| `init`         | Creates a new blockchain with a Genesis block             | No                |
+| `add`          | Adds one or more evidence items to a case                 | Creator           |
+| `checkout`     | Checks out an item (CHECKEDIN → CHECKEDOUT)              | Owner             |
+| `checkin`      | Checks in an item (CHECKEDOUT → CHECKEDIN)               | Owner             |
+| `remove`       | Removes an item (only when CHECKEDIN)                    | Creator           |
+| `show cases`   | Lists all case IDs in the blockchain                     | No                |
+| `show items`   | Lists all items associated with a case                   | No                |
+| `show history` | Displays full chronological history of an item           | No                |
+| `verify`       | Validates blockchain integrity via hash chain            | No                |
+| `summary`      | Displays counts of items by state                        | Police            |
 
-checkout: Checks out an item, changing its state from CHECKEDIN to CHECKEDOUT (requires owner password).
+---
 
-checkin: Checks in an item, changing its state from CHECKEDOUT to CHECKEDIN (requires owner password).
+## ▶️ How to Run
 
-remove: Removes an item from the chain (requires creator password and CHECKEDIN state).
+This project is designed for **Linux** (Ubuntu 18.04+ recommended).
 
-show cases: Lists all unique case IDs in the blockchain.
+---
 
-show items: Lists all unique items for a given case ID.
+### 1️⃣ Build the Executable
 
-show history: Shows the complete, chronologically-ordered transaction history for an item.
-
-verify: Verifies the integrity of the entire blockchain by checking its hash chain.
-
-summary: Provides a final count of items in each state for a given case.
-
-How to Run
-
-The program is designed to run in a Linux environment (e.g., Ubuntu 18.04+).
-
-1. Build the Executable
-
-First, use the Makefile to ensure the bchoc script is executable:
-
+```bash
 make
+```
 
+This ensures the `./bchoc` script is executable.
 
-2. Set Environment Variables
+---
 
-The program reads all passwords from environment variables, as required by the project specification.
+### 2️⃣ Set Environment Variables
 
+All system passwords must be exported before running commands:
+
+```bash
 export BCHOC_PASSWORD_CREATOR="C67C"
 export BCHOC_PASSWORD_POLICE="P80P"
 export BCHOC_PASSWORD_ANALYST="A65A"
 export BCHOC_PASSWORD_LAWYER="L76L"
 export BCHOC_PASSWORD_EXECUTIVE="E69E"
+```
 
+---
 
-3. Run the Program
+### 3️⃣ Specify Blockchain File Path
 
-The program must be told where to find or create the blockchain file using the BCHOC_FILE_PATH environment variable.
+Every command must be supplied with the blockchain location:
 
-All commands are run using the ./bchoc executable.
+```
+BCHOC_FILE_PATH="chain.db" ./bchoc <command> <args>
+```
 
-# Example: Initialize the chain
+---
+
+## 📝 Usage Examples
+
+### Initialize the blockchain
+```bash
 BCHOC_FILE_PATH="chain.db" ./bchoc init
+```
 
-# Example: Add an item
-BCHOC_FILE_PATH="chain.db" ./bchoc add -c "0b711606-090e-40fb-8f9a-b82347a43887" -i 3463648746 -g "creator1" -p "C67C"
+### Add an evidence item
+```bash
+BCHOC_FILE_PATH="chain.db" ./bchoc add \
+  -c "0b711606-090e-40fb-8f9a-b82347a43887" \
+  -i 3463648746 \
+  -g "creator1" \
+  -p "C67C"
+```
 
-# Example: Verify the chain
+### Verify blockchain integrity
+```bash
 BCHOC_FILE_PATH="chain.db" ./bchoc verify
+```
 
-# Example: Show a summary
-BCHOC_FILE_PATH="chain.db" ./bchoc summary -c "0b711606-090e-40fb-8f9a-b82347a43887" -p "P80P"
+### Show a summary for a case
+```bash
+BCHOC_FILE_PATH="chain.db" ./bchoc summary \
+  -c "0b711606-090e-40fb-8f9a-b82347a43887" \
+  -p "P80P"
+```
+
+---
+
+## 📂 Project Structure (Example)
+
+```
+bchoc/
+├── bchoc               # Main executable
+├── blockchain.py       # Blockchain logic
+├── block.py            # Block structure & hashing
+├── utils.py            # Helper functions
+├── Makefile            # Build script
+└── README.md           # Project documentation
+```
+
+---
+
+## 🔐 Security Features
+
+- File-based immutable blockchain  
+- SHA-256 hashing of every block  
+- Strict password-protected operations  
+- Chronological ordering enforcement  
+- Full transaction audit logs  
+
+---
+
+## 🛠️ Requirements
+
+| Dependency | Version |
+|------------|----------|
+| Python     | 3.6+     |
+| Linux      | Ubuntu 18.04+ |
+| Make       | GNU Make |
+
+---
+
+## 📜 License
+
+This project was created for **CSE 469 – Blockchain and Cryptography** coursework.  
+License terms may be added as needed by the project group.
+
+---
+
