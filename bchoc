@@ -22,7 +22,7 @@ except ImportError:
     print("Error: 'block_helper.py' not found or dependencies missing.", file=sys.stderr)
     sys.exit(1)
 
-# Constants
+# --- Constants ---
 BCHOC_FILE_PATH_ENV = "BCHOC_FILE_PATH"
 DEFAULT_BLOCKCHAIN_FILE = "bchoc.db"
 
@@ -37,7 +37,7 @@ PASSWORD_ENV_VARS = {
 OWNER_ROLES = ["police", "lawyer", "analyst", "executive"]
 REMOVAL_REASONS = ["DISPOSED", "DESTROYED", "RELEASED"]
 
-# Helper Functions
+# --- Helper Functions ---
 
 def check_password(password, roles):
     # Verifies password against environment variables
@@ -145,7 +145,6 @@ def add_block(blockchain_file_path, case_id, item_ids, creator, password):
 
         state, _ = get_item_state(blockchain_file_path, item_id_int)
         if state is not None:
-            # Note: Using stderr for errors is safer for autograder parsing
             print(f"Error: Item {item_id_int} already exists in the blockchain.", file=sys.stderr) 
             sys.exit(1)
 
@@ -198,7 +197,8 @@ def change_item_state(blockchain_file_path, item_id_str, password, new_state):
     )
     
     try:
-        with open(blockchain_file, "ab") as f: f.write(new_block_bytes)
+        # FIX: Use blockchain_file_path, not blockchain_file
+        with open(blockchain_file_path, "ab") as f: f.write(new_block_bytes)
         ts = datetime.fromtimestamp(timestamp, timezone.utc).isoformat().replace('+00:00', 'Z')
         print(f"Case: {case_id}")
         if new_state == "CHECKEDIN":
@@ -217,9 +217,11 @@ def remove_item(blockchain_file_path, item_id_str, reason, owner_info, password)
         sys.exit(1)
         
     if reason not in REMOVAL_REASONS:
+        print(f"Error: Invalid reason.", file=sys.stderr)
         sys.exit(1)
         
     if reason == "RELEASED" and not owner_info:
+        print("Error: Missing owner info.", file=sys.stderr)
         sys.exit(1)
         
     data_bytes = b""
@@ -234,6 +236,7 @@ def remove_item(blockchain_file_path, item_id_str, reason, owner_info, password)
     current_state, case_id = get_item_state(blockchain_file_path, item_id_int)
     
     if current_state is None:
+        print(f"Error: Item not found.", file=sys.stderr)
         sys.exit(1)
     
     if current_state != "CHECKEDIN":
@@ -253,7 +256,8 @@ def remove_item(blockchain_file_path, item_id_str, reason, owner_info, password)
     )
     
     try:
-        with open(blockchain_file, "ab") as f: f.write(new_block_bytes)
+        # FIX: Use blockchain_file_path, not blockchain_file
+        with open(blockchain_file_path, "ab") as f: f.write(new_block_bytes)
         ts = datetime.fromtimestamp(timestamp, timezone.utc).isoformat().replace('+00:00', 'Z')
         print(f"Case: {case_id}")
         print(f"Removed item: {item_id_int}")
