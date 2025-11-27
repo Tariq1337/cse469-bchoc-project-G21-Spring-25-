@@ -1,42 +1,45 @@
+# CSE 469 Group Project - Group 21
+# Members: Tariq Bahaaaldeen, Abhinav Ranish, Raiden Ison, Hansel Kunaseelan Nadar
+# Description: Helper functions for packing/unpacking binary blocks and handling encryption.
+
 import struct
 import uuid
 from Crypto.Cipher import AES
-from Crypto.Util.Padding import pad, unpad
 
-# Hardcoded AES key from the project spec
+# AES key hardcoded from project specification
 AES_KEY = b"R0chLi4uLi4uLi4="
 
-# The block header structure format string
+# Block header format: 32s (prev_hash), d (timestamp), 32s (case_id), 32s (item_id),
+# 12s (state), 12s (creator), 12s (owner), I (data_len)
 BLOCK_HEADER_FORMAT = "32s d 32s 32s 12s 12s 12s I"
 BLOCK_HEADER_SIZE = struct.calcsize(BLOCK_HEADER_FORMAT)
 
-# --- Encryption Functions ---
-
 def encrypt_data(data):
+    # Encrypts data using AES ECB mode with null padding
     cipher = AES.new(AES_KEY, AES.MODE_ECB)
     padded_data = data.ljust(32, b'\0') 
-    ciphertext = cipher.encrypt(padded_data)
-    return ciphertext
+    return cipher.encrypt(padded_data)
 
 def decrypt_data(ciphertext):
+    # Decrypts data using AES ECB mode and removes padding
     cipher = AES.new(AES_KEY, AES.MODE_ECB)
     padded_data = cipher.decrypt(ciphertext)
-    data = padded_data.rstrip(b'\0')
-    return data
-
-# --- Block Packing/Unpacking Functions ---
+    return padded_data.rstrip(b'\0')
 
 def pack_block(prev_hash, timestamp, case_id_str, item_id_int, state, creator, owner, data=b""):
+    # Encrypt Case ID and Item ID
     case_id_bytes = uuid.UUID(case_id_str).bytes
     enc_case_id = encrypt_data(case_id_bytes)
     
     item_id_bytes = item_id_int.to_bytes(4, 'little')
     enc_item_id = encrypt_data(item_id_bytes)
     
+    # Format strings to bytes
     state_bytes = state.encode('utf-8').ljust(12, b'\0')
     creator_bytes = creator.encode('utf-8').ljust(12, b'\0')
     owner_bytes = owner.encode('utf-8').ljust(12, b'\0')
     
+    # Pack the header into binary format
     header = struct.pack(
         BLOCK_HEADER_FORMAT,
         prev_hash,
@@ -48,18 +51,15 @@ def pack_block(prev_hash, timestamp, case_id_str, item_id_int, state, creator, o
         owner_bytes,
         len(data)
     )
+    
     return header + data
 
 def unpack_block(block_bytes):
-    """
-    Takes a single block's raw bytes, unpacks the header,
-    decrypts sensitive fields, and returns a readable dictionary.
-    """
-    # 1. Separate header and data
+    # Separate header and data
     header_bytes = block_bytes[:BLOCK_HEADER_SIZE]
     data_bytes = block_bytes[BLOCK_HEADER_SIZE:]
     
-    # 2. Unpack the header
+    # Unpack header fields
     (
         prev_hash,
         timestamp,
@@ -71,28 +71,22 @@ def unpack_block(block_bytes):
         data_len
     ) = struct.unpack(BLOCK_HEADER_FORMAT, header_bytes)
 
-    # 3. Decode state *first* to check for Genesis
     state = state_bytes.decode('utf-8').rstrip('\0')
+    creator = creator_bytes.decode('utf-8').rstrip('\0')
+    owner = owner_bytes.decode('utf-8').rstrip('\0')
 
-    # 4. Handle Genesis block vs. Normal block
+    # Handle Initial block logic (no decryption needed)
     if state == "INITIAL":
-        # Genesis block has special non-encrypted, non-UUID/int fields
         case_id_str = "00000000-0000-0000-0000-000000000000"
         item_id_int = 0
     else:
-        # Decrypt/Convert Case ID
+        # Decrypt Case ID and Item ID for normal blocks
         dec_case_id_bytes = decrypt_data(enc_case_id)
         case_id_str = str(uuid.UUID(bytes=dec_case_id_bytes))
         
-        # Decrypt/Convert Item ID
         dec_item_id_bytes = decrypt_data(enc_item_id)
         item_id_int = int.from_bytes(dec_item_id_bytes, 'little')
     
-    # 5. Decode other strings
-    creator = creator_bytes.decode('utf-8').rstrip('\0')
-    owner = owner_bytes.decode('utf-8').rstrip('\0')
-    
-    # 6. Return a nice dictionary
     return {
         "prev_hash": prev_hash,
         "timestamp": timestamp,
@@ -102,5 +96,5 @@ def unpack_block(block_bytes):
         "creator": creator,
         "owner": owner,
         "data_len": data_len,
-        "data": data_bytes[:data_len] # Only return the data specified by data_len
+        "data": data_bytes[:data_len]
     }
