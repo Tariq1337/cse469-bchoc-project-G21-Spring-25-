@@ -148,8 +148,7 @@ bchoc/
 
 ## 📜 License
 
-This project was created for **CSE 469 – Blockchain and Cryptography** coursework.  
-License terms may be added as needed by the project group.
+This project was created for **CSE 469 – Computer and Network Forensics** coursework.  
 
 ---
 
