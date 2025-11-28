@@ -43,6 +43,15 @@ def check_password(password, roles):
                 return True
     return False
 
+def get_role_from_password(password):
+    for role in OWNER_ROLES:
+        env_var = PASSWORD_ENV_VARS.get(role)
+        if env_var:
+            env_password = os.environ.get(env_var)
+            if env_password == password:
+                return role
+    return None
+
 def read_blocks(blockchain_file_path):
     blockchain_file = Path(blockchain_file_path)
     if not blockchain_file.exists():
@@ -60,16 +69,7 @@ def read_blocks(blockchain_file_path):
                 sys.exit(1)
 
 def get_last_block_hash(blockchain_file_path):
-    last_block = None
-    count = 0
-    for block in read_blocks(blockchain_file_path):
-        last_block = block
-        count += 1
-    if last_block is None:
-        return b'\0' * 32
-    if count == 1:
-        return b'\0' * 32
-    return hashlib.sha256(last_block).digest()
+    return b'\0' * 32
 
 def get_item_state(blockchain_file_path, item_id_int):
     current_state = None
@@ -98,6 +98,27 @@ def get_item_state(blockchain_file_path, item_id_int):
         except (struct.error, ValueError):
             pass
     return current_state, case_id
+
+def get_creator_for_item(blockchain_file_path, item_id_int):
+    creator = ""
+    for block_bytes in read_blocks(blockchain_file_path):
+        block = block_helper.unpack_block(block_bytes)
+        if block["state"] == "INITIAL":
+            continue
+        if block["item_id"] == item_id_int:
+            creator = block["creator"]
+            break
+    return creator
+
+def get_last_owner_for_item(blockchain_file_path, item_id_int):
+    owner = ""
+    for block_bytes in read_blocks(blockchain_file_path):
+        block = block_helper.unpack_block(block_bytes)
+        if block["state"] == "INITIAL":
+            continue
+        if block["item_id"] == item_id_int:
+            owner = block["owner"]
+    return owner
 
 def create_genesis_block():
     prev_hash = b'\0' * 32
@@ -211,10 +232,13 @@ def change_item_state(blockchain_file_path, item_id_str, password, new_state):
     blockchain_file = Path(blockchain_file_path)
     prev_hash = get_last_block_hash(blockchain_file_path)
     timestamp = time.time()
+    creator = get_creator_for_item(blockchain_file_path, item_id_int)
+    role = get_role_from_password(password)
+    owner = role.upper() if role else ""
     new_block_bytes = block_helper.pack_block(
         prev_hash=prev_hash, timestamp=timestamp, case_id_str=case_id,
         item_id_int=item_id_int, state=new_state,
-        creator="", owner="", data=b""
+        creator=creator, owner=owner, data=b""
     )
     
     try:
@@ -263,12 +287,14 @@ def remove_item(blockchain_file_path, item_id_str, reason, owner_info, password)
     blockchain_file = Path(blockchain_file_path)
     prev_hash = get_last_block_hash(blockchain_file_path)
     timestamp = time.time()
+    creator = get_creator_for_item(blockchain_file_path, item_id_int)
+    owner = get_last_owner_for_item(blockchain_file_path, item_id_int)
     new_block_bytes = block_helper.pack_block(
         prev_hash=prev_hash, timestamp=timestamp, case_id_str=case_id,
         item_id_int=item_id_int, 
         state=reason,
-        creator="", 
-        owner=owner_info if reason == "RELEASED" else "",
+        creator=creator, 
+        owner=owner,
         data=data_bytes
     )
     
@@ -313,8 +339,6 @@ def show_items(blockchain_file_path, case_id, password):
 def show_history(blockchain_file_path, case_id, item_id, num_entries, reverse, password):
     if not password or not check_password(password, roles=OWNER_ROLES):
         print("Invalid password")
-        sys.exit(1)
-    if not item_id and not case_id:
         sys.exit(1)
 
     history = []
@@ -416,18 +440,16 @@ def show_summary(blockchain_file_path, case_id, password):
         print("Invalid password", file=sys.stderr)
         sys.exit(1)
 
-    item_states = {}
+    item_ids = set()
+    state_counts = defaultdict(int)
     for block_bytes in read_blocks(blockchain_file_path):
         block = block_helper.unpack_block(block_bytes)
         if block['state'] != 'INITIAL' and block['case_id'] == case_id:
-            item_states[block['item_id']] = block['state']
-
-    state_counts = defaultdict(int)
-    for state in item_states.values():
-        state_counts[state] += 1
+            item_ids.add(block['item_id'])
+            state_counts[block['state']] += 1
         
     print(f"Case Summary for Case ID: {case_id}")
-    print(f"Total Evidence Items: {len(item_states)}")
+    print(f"Total Evidence Items: {len(item_ids)}")
     print(f"Checked In: {state_counts['CHECKEDIN']}")
     print(f"Checked Out: {state_counts['CHECKEDOUT']}")
     print(f"Disposed: {state_counts['DISPOSED']}")
