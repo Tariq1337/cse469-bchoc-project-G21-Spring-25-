@@ -15,13 +15,11 @@ BLOCK_HEADER_FORMAT = "32s d 32s 32s 12s 12s 12s I"
 BLOCK_HEADER_SIZE = struct.calcsize(BLOCK_HEADER_FORMAT)
 
 def encrypt_data(data):
-    # Encrypts data using AES ECB mode with null padding to 16 bytes
     cipher = AES.new(AES_KEY, AES.MODE_ECB)
     padded_data = data.ljust(16, b'\0') 
     return cipher.encrypt(padded_data)
 
 def decrypt_data(ciphertext):
-    # Decrypts data using AES ECB mode and removes padding
     cipher = AES.new(AES_KEY, AES.MODE_ECB)
     padded_data = cipher.decrypt(ciphertext)
     return padded_data.rstrip(b'\0')
