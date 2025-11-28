@@ -16,31 +16,27 @@ BLOCK_HEADER_SIZE = struct.calcsize(BLOCK_HEADER_FORMAT)
 
 def encrypt_data(data):
     cipher = AES.new(AES_KEY, AES.MODE_ECB)
-    padded_data = data.ljust(16, b'\0') 
+    padded_data = data.rjust(16, b'\0')
     return cipher.encrypt(padded_data)
 
 def decrypt_data(ciphertext):
     cipher = AES.new(AES_KEY, AES.MODE_ECB)
     padded_data = cipher.decrypt(ciphertext)
-    return padded_data.rstrip(b'\0')
+    return padded_data.lstrip(b'\0')
 
 def pack_block(prev_hash, timestamp, case_id_str, item_id_int, state, creator, owner, data=b""):
-    # 1. Encrypt Case ID (16 bytes) -> Hex String (32 bytes)
     case_id_bytes = uuid.UUID(case_id_str).bytes
     encrypted_case = encrypt_data(case_id_bytes)
     enc_case_id = encrypted_case.hex().encode('utf-8')
     
-    # 2. Encrypt Item ID (Int -> 16 bytes) -> Hex String (32 bytes)
-    item_id_bytes = item_id_int.to_bytes(4, 'little')
+    item_id_bytes = item_id_int.to_bytes(4, 'big')
     encrypted_item = encrypt_data(item_id_bytes)
     enc_item_id = encrypted_item.hex().encode('utf-8')
     
-    # 3. Format strings to bytes
     state_bytes = state.encode('utf-8').ljust(12, b'\0')
     creator_bytes = creator.encode('utf-8').ljust(12, b'\0')
     owner_bytes = owner.encode('utf-8').ljust(12, b'\0')
     
-    # Pack the header into binary format
     header = struct.pack(
         BLOCK_HEADER_FORMAT,
         prev_hash,
@@ -74,23 +70,19 @@ def unpack_block(block_bytes):
     creator = creator_bytes.decode('utf-8').rstrip('\0')
     owner = owner_bytes.decode('utf-8').rstrip('\0')
 
-    # Handle Initial block logic
     if state == "INITIAL":
         case_id_str = "00000000-0000-0000-0000-000000000000"
         item_id_int = 0
     else:
-        # Decrypt Case ID and Item ID for normal blocks
         try:
-            # Hex String (32) -> Encrypted Bytes (16) -> Decrypt -> Data
             enc_case_bytes = bytes.fromhex(enc_case_id.decode('utf-8'))
             dec_case_id_bytes = decrypt_data(enc_case_bytes)
             case_id_str = str(uuid.UUID(bytes=dec_case_id_bytes))
             
             enc_item_bytes = bytes.fromhex(enc_item_id.decode('utf-8'))
             dec_item_id_bytes = decrypt_data(enc_item_bytes)
-            item_id_int = int.from_bytes(dec_item_id_bytes, 'little')
+            item_id_int = int.from_bytes(dec_item_id_bytes, 'big')
         except ValueError:
-            # If hex decoding fails, return safe defaults
             case_id_str = "00000000-0000-0000-0000-000000000000"
             item_id_int = 0
     
