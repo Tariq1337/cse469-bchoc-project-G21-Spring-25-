@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
 
-# CSE 469 Group Project - Group 21
-# Members: Tariq Bahaaaldeen, Abhinav Ranish, Raiden Ison, Hansel Kunaseelan Nadar
-# Description: Main program for Blockchain Chain of Custody.
-
 import os
 import sys
 import argparse
@@ -43,6 +39,16 @@ def check_password(password, roles):
                 return True
     return False
 
+def get_owner_role_from_password(password):
+    for role in OWNER_ROLES:
+        env_var = PASSWORD_ENV_VARS.get(role)
+        if not env_var:
+            continue
+        env_password = os.environ.get(env_var)
+        if env_password == password:
+            return role.upper()
+    return ""
+
 def read_blocks(blockchain_file_path):
     blockchain_file = Path(blockchain_file_path)
     if not blockchain_file.exists():
@@ -61,43 +67,29 @@ def read_blocks(blockchain_file_path):
 
 def get_last_block_hash(blockchain_file_path):
     last_block = None
-    count = 0
     for block in read_blocks(blockchain_file_path):
         last_block = block
-        count += 1
     if last_block is None:
-        return b'\0' * 32
-    if count == 1:
         return b'\0' * 32
     return hashlib.sha256(last_block).digest()
 
 def get_item_state(blockchain_file_path, item_id_int):
     current_state = None
     case_id = None
-
-    item_id_bytes = item_id_int.to_bytes(4, 'big')
-    encrypted_item = block_helper.encrypt_data(item_id_bytes)
-    target_hex_id = encrypted_item.hex().encode('utf-8')
-
+    creator = None
+    last_owner = None
     for block_bytes in read_blocks(blockchain_file_path):
-        header_bytes = block_bytes[:block_helper.BLOCK_HEADER_SIZE]
-        try:
-            enc_item_id = struct.unpack_from("32s", header_bytes, 0x48)[0]
-
-            if enc_item_id == target_hex_id:
-                state_bytes = struct.unpack_from("12s", header_bytes, 0x68)[0]
-                current_state = state_bytes.decode('utf-8').rstrip('\0')
-
-                enc_case_id = struct.unpack_from("32s", header_bytes, 0x28)[0]
-                try:
-                    enc_bytes = bytes.fromhex(enc_case_id.decode('utf-8'))
-                    dec_case = block_helper.decrypt_data(enc_bytes)
-                    case_id = str(uuid.UUID(bytes=dec_case))
-                except:
-                    pass
-        except (struct.error, ValueError):
-            pass
-    return current_state, case_id
+        block = block_helper.unpack_block(block_bytes)
+        if block["state"] == "INITIAL":
+            continue
+        if block["item_id"] == item_id_int:
+            case_id = block["case_id"]
+            current_state = block["state"]
+            if creator is None and block["creator"]:
+                creator = block["creator"]
+            if block["owner"]:
+                last_owner = block["owner"]
+    return current_state, case_id, creator, last_owner
 
 def create_genesis_block():
     prev_hash = b'\0' * 32
@@ -109,7 +101,6 @@ def create_genesis_block():
     owner_bytes = b'\0' * 12
     data_len = 14
     data = b"Initial block\0"
-    
     header = struct.pack(
         block_helper.BLOCK_HEADER_FORMAT,
         prev_hash, timestamp, enc_case_id, enc_item_id,
@@ -131,7 +122,6 @@ def init_blockchain(blockchain_file_path):
             except Exception:
                 pass
         sys.exit(1)
-
     genesis_block_bytes = create_genesis_block()
     try:
         with open(blockchain_file, "wb") as f:
@@ -144,11 +134,9 @@ def add_block(blockchain_file_path, case_id, item_ids_list, creator, password):
     if not check_password(password, roles=['creator']):
         print("Invalid password")
         sys.exit(1)
-        
     blockchain_file = Path(blockchain_file_path)
     if not blockchain_file.exists():
         init_blockchain(blockchain_file_path)
-    
     flat_ids = []
     if item_ids_list:
         for item in item_ids_list:
@@ -156,29 +144,24 @@ def add_block(blockchain_file_path, case_id, item_ids_list, creator, password):
                 flat_ids.extend(item)
             else:
                 flat_ids.append(item)
-
     for item_id_str in flat_ids:
         try:
             item_id_int = int(item_id_str)
         except ValueError:
             sys.exit(1)
-
-        state, _ = get_item_state(blockchain_file_path, item_id_int)
+        state, _, _, _ = get_item_state(blockchain_file_path, item_id_int)
         if state is not None:
             print(f"Error: Item {item_id_int} already exists in the blockchain.", file=sys.stderr)
             sys.exit(1)
-
     for item_id_str in flat_ids:
         item_id_int = int(item_id_str)
         prev_hash = get_last_block_hash(blockchain_file_path)
         timestamp = time.time()
-        
         new_block_bytes = block_helper.pack_block(
             prev_hash=prev_hash, timestamp=timestamp,
             case_id_str=case_id, item_id_int=item_id_int,
             state="CHECKEDIN", creator=creator, owner="", data=b""
         )
-        
         try:
             with open(blockchain_file, "ab") as f:
                 f.write(new_block_bytes)
@@ -197,26 +180,23 @@ def change_item_state(blockchain_file_path, item_id_str, password, new_state):
         item_id_int = int(item_id_str)
     except ValueError:
         sys.exit(1)
-        
-    current_state, case_id = get_item_state(blockchain_file_path, item_id_int)
+    current_state, case_id, creator, _ = get_item_state(blockchain_file_path, item_id_int)
     if current_state is None:
         print(f"Error: Item {item_id_int} not found in blockchain.", file=sys.stderr)
         sys.exit(1)
-        
     expected_state = "CHECKEDIN" if new_state == "CHECKEDOUT" else "CHECKEDOUT"
     if current_state != expected_state:
         print(f"Error: Cannot {new_state.lower().replace('checked', 'check')} item. Item is already {current_state.upper()}.", file=sys.stderr)
         sys.exit(1)
-    
-    blockchain_file = Path(blockchain_file_path)
     prev_hash = get_last_block_hash(blockchain_file_path)
     timestamp = time.time()
+    owner_role = get_owner_role_from_password(password)
+    creator_str = creator if creator is not None else ""
     new_block_bytes = block_helper.pack_block(
         prev_hash=prev_hash, timestamp=timestamp, case_id_str=case_id,
         item_id_int=item_id_int, state=new_state,
-        creator="", owner="", data=b""
+        creator=creator_str, owner=owner_role, data=b""
     )
-    
     try:
         with open(blockchain_file, "ab") as f:
             f.write(new_block_bytes)
@@ -235,43 +215,35 @@ def remove_item(blockchain_file_path, item_id_str, reason, owner_info, password)
     if not check_password(password, roles=['creator']):
         print("Invalid password")
         sys.exit(1)
-        
     if reason not in REMOVAL_REASONS:
         print(f"Error: Invalid reason.", file=sys.stderr)
         sys.exit(1)
-    
     if reason == "RELEASED" and not owner_info:
         owner_info = ""
-        
     data_bytes = b""
-    if reason == "RELEASED":
-        data_bytes = owner_info.encode('utf-8')
-
     try:
         item_id_int = int(item_id_str)
     except ValueError:
         sys.exit(1)
-
-    current_state, case_id = get_item_state(blockchain_file_path, item_id_int)
+    current_state, case_id, creator, last_owner = get_item_state(blockchain_file_path, item_id_int)
     if current_state is None:
         print(f"Error: Item not found.", file=sys.stderr)
         sys.exit(1)
     if current_state != "CHECKEDIN":
         print(f"Error: Cannot remove item. Item must be CHECKEDIN (current state: {current_state}).", file=sys.stderr)
         sys.exit(1)
-        
-    blockchain_file = Path(blockchain_file_path)
     prev_hash = get_last_block_hash(blockchain_file_path)
     timestamp = time.time()
+    creator_str = creator if creator is not None else ""
+    owner_str = last_owner if last_owner is not None else ""
     new_block_bytes = block_helper.pack_block(
         prev_hash=prev_hash, timestamp=timestamp, case_id_str=case_id,
-        item_id_int=item_id_int, 
+        item_id_int=item_id_int,
         state=reason,
-        creator="", 
-        owner=owner_info if reason == "RELEASED" else "",
+        creator=creator_str,
+        owner=owner_str,
         data=data_bytes
     )
-    
     try:
         with open(blockchain_file, "ab") as f:
             f.write(new_block_bytes)
@@ -287,10 +259,10 @@ def show_cases(blockchain_file_path, password):
     if password and not check_password(password, roles=OWNER_ROLES):
         print("Invalid password")
         sys.exit(1)
-        
     cases = set()
     for block_bytes in read_blocks(blockchain_file_path):
-        if len(block_bytes) < block_helper.BLOCK_HEADER_SIZE:
+        header_bytes = block_helper.BLOCK_HEADER_SIZE
+        if len(block_bytes) < header_bytes:
             continue
         block = block_helper.unpack_block(block_bytes)
         if block['state'] != "INITIAL":
@@ -314,27 +286,21 @@ def show_history(blockchain_file_path, case_id, item_id, num_entries, reverse, p
     if not password or not check_password(password, roles=OWNER_ROLES):
         print("Invalid password")
         sys.exit(1)
-    if not item_id and not case_id:
-        sys.exit(1)
-
     history = []
     target_item_id = int(item_id) if item_id else None
-
     for block_bytes in read_blocks(blockchain_file_path):
         block = block_helper.unpack_block(block_bytes)
         if block['state'] == 'INITIAL':
             continue
-        if target_item_id and block['item_id'] != target_item_id:
+        if target_item_id is not None and block['item_id'] != target_item_id:
             continue
         if case_id and block['case_id'] != case_id:
             continue
         history.append(block)
-
     if reverse:
         history.reverse()
     if num_entries:
         history = history[:num_entries]
-        
     for block in history:
         ts = datetime.fromtimestamp(block["timestamp"], timezone.utc)
         iso_time = ts.isoformat().replace('+00:00', 'Z')
@@ -348,15 +314,12 @@ def verify_blockchain(blockchain_file_path):
     expected_prev_hash = b'\0' * 32
     num_transactions = 0
     is_clean = True
-    
     item_states = {}
-    
     try:
         for block_bytes in read_blocks(blockchain_file_path):
             num_transactions += 1
             header_bytes = block_bytes[:block_helper.BLOCK_HEADER_SIZE]
             prev_hash = struct.unpack_from("32s", header_bytes, 0x00)[0]
-            
             if prev_hash != expected_prev_hash:
                 print(f"Transactions in blockchain: {num_transactions}")
                 print(f"State of blockchain: ERROR")
@@ -364,16 +327,13 @@ def verify_blockchain(blockchain_file_path):
                 print(f"Parent block hash did not match expected hash.")
                 is_clean = False
                 sys.exit(1)
-            
+                break
             expected_prev_hash = hashlib.sha256(block_bytes).digest()
-            
             block = block_helper.unpack_block(block_bytes)
             state = block['state']
             item_id = block['item_id']
-            
             if state == "INITIAL":
                 continue
-
             if item_id not in item_states:
                 if state != "CHECKEDIN":
                     print(f"Transactions in blockchain: {num_transactions}")
@@ -392,42 +352,39 @@ def verify_blockchain(blockchain_file_path):
                     valid = False
                 elif state in REMOVAL_REASONS and current != "CHECKEDIN":
                     valid = False
-                
                 if not valid:
                     print(f"Transactions in blockchain: {num_transactions}")
                     print(f"State of blockchain: ERROR")
                     print(f"Bad block: {hashlib.sha256(block_bytes).hexdigest()}")
                     print(f"Item checked out or checked in after removal from chain.")
                     sys.exit(1)
-                
                 item_states[item_id] = state
-
     except Exception:
         print(f"Transactions in blockchain: {num_transactions}")
         print(f"State of blockchain: ERROR")
         sys.exit(1)
-
     if is_clean:
         print(f"Transactions in blockchain: {num_transactions}")
         print(f"State of blockchain: CLEAN")
 
 def show_summary(blockchain_file_path, case_id, password):
-    if password is not None and not check_password(password, roles=OWNER_ROLES):
+    if not check_password(password, roles=OWNER_ROLES):
         print("Invalid password", file=sys.stderr)
         sys.exit(1)
-
-    item_states = {}
+    item_ids = set()
+    state_counts = defaultdict(int)
     for block_bytes in read_blocks(blockchain_file_path):
         block = block_helper.unpack_block(block_bytes)
-        if block['state'] != 'INITIAL' and block['case_id'] == case_id:
-            item_states[block['item_id']] = block['state']
-
-    state_counts = defaultdict(int)
-    for state in item_states.values():
-        state_counts[state] += 1
-        
+        if block['state'] == 'INITIAL':
+            continue
+        if block['case_id'] != case_id:
+            continue
+        item_ids.add(block['item_id'])
+        state = block['state']
+        if state in ["CHECKEDIN", "CHECKEDOUT"] + REMOVAL_REASONS:
+            state_counts[state] += 1
     print(f"Case Summary for Case ID: {case_id}")
-    print(f"Total Evidence Items: {len(item_states)}")
+    print(f"Total Evidence Items: {len(item_ids)}")
     print(f"Checked In: {state_counts['CHECKEDIN']}")
     print(f"Checked Out: {state_counts['CHECKEDOUT']}")
     print(f"Disposed: {state_counts['DISPOSED']}")
@@ -436,32 +393,25 @@ def show_summary(blockchain_file_path, case_id, password):
 
 def main():
     blockchain_file = os.environ.get(BCHOC_FILE_PATH_ENV, DEFAULT_BLOCKCHAIN_FILE)
-
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="command", required=True)
-    
     parser_init = subparsers.add_parser("init")
-    
     parser_add = subparsers.add_parser("add")
     parser_add.add_argument("-c", required=True, dest="case_id")
     parser_add.add_argument("-i", required=True, dest="item_ids", action='append')
     parser_add.add_argument("-g", required=True, dest="creator")
     parser_add.add_argument("-p", required=True, dest="password")
-
     parser_checkout = subparsers.add_parser("checkout")
     parser_checkout.add_argument("-i", required=True, dest="item_id")
     parser_checkout.add_argument("-p", required=True, dest="password")
-    
     parser_checkin = subparsers.add_parser("checkin")
     parser_checkin.add_argument("-i", required=True, dest="item_id")
     parser_checkin.add_argument("-p", required=True, dest="password")
-
     parser_remove = subparsers.add_parser("remove")
     parser_remove.add_argument("-i", required=True, dest="item_id")
     parser_remove.add_argument("-y", "--why", required=True, dest="reason")
     parser_remove.add_argument("-o", dest="owner")
     parser_remove.add_argument("-p", required=True, dest="password")
-
     parser_show = subparsers.add_parser("show")
     parser_show.add_argument("show_target", choices=['cases', 'items', 'history'])
     parser_show.add_argument("-p", required=False, dest="password")
@@ -469,18 +419,14 @@ def main():
     parser_show.add_argument("-i", dest="item_id")
     parser_show.add_argument("-n", dest="num_entries", type=int)
     parser_show.add_argument("-r", "--reverse", dest="reverse", action='store_true')
-
     parser_verify = subparsers.add_parser("verify")
-    
     parser_summary = subparsers.add_parser("summary")
     parser_summary.add_argument("-c", required=True, dest="case_id")
-    parser_summary.add_argument("-p", required=False, dest="password")
-
+    parser_summary.add_argument("-p", required=True, dest="password")
     try:
         args = parser.parse_args()
     except:
-        sys.exit(1) 
-
+        sys.exit(1)
     if args.command == "init":
         init_blockchain(blockchain_file)
     elif args.command == "add":
