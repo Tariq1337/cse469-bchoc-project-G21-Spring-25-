@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # CSE 469 Group Project - Group 21
-# Members: Tariq Bahaaaldeen, Abhinav Ranish, Raiden Ison, Hansel Kunaseelan Nadar
+# Members: Tariq Bahaaaldeen, Abhinav Ranish, Raiden Ison, Hansel Kunaseelan Nadar, Ismail Wehelie
 
 import os
 import sys
@@ -51,6 +51,14 @@ def get_role_from_password(password):
                 return role
     return None
 
+
+# Generative AI Used: ChatGPT (OpenAI, November 16, 2025)
+# Purpose: We asked for a skeleton function to iterate through all blocks and
+#          compute the last block’s SHA-256 hash to use as prev_hash for new blocks,
+#          then we adjusted details (like handling the empty-chain case) ourselves.
+# Prompt: "In my CSE 469 bchoc blockchain project, write a Python helper
+#          get_last_block_hash(path) that reads all binary blocks and returns
+#          the SHA-256 of the last block, or 32 zero bytes if there are no blocks."
 def read_blocks(blockchain_file_path):
     blockchain_file = Path(blockchain_file_path)
     if not blockchain_file.exists():
@@ -75,6 +83,15 @@ def get_last_block_hash(blockchain_file_path):
         return b'\0' * 32
     return hashlib.sha256(last_block).digest()
 
+
+# Generative AI Used: ChatGPT (OpenAI, November 17, 2025)
+# Purpose: We requested a skeleton and guidance for efficiently computing the current
+#          state of an item by scanning encrypted item IDs directly from the header,
+#          instead of fully unpacking every block. We then integrated offsets and
+#          small fixes to match the project’s binary layout.
+# Prompt: "Given my block_helper header format, help me write a get_item_state(...)
+#          in Python that encrypts an integer item_id, scans all blocks, compares
+#          the encrypted item_id field, and returns the item’s latest state and case_id."
 def get_item_state(blockchain_file_path, item_id_int):
     current_state = None
     case_id = None
@@ -340,6 +357,16 @@ def show_items(blockchain_file_path, case_id, password):
     for item in sorted(list(items)):
         print(item)
 
+
+# Generative AI Used: ChatGPT (OpenAI, November 17, 2025)
+# Purpose: We asked for a skeleton for the show history feature that supports
+#          filtering by case_id and/or item_id, optional -n limiting, and -r
+#          reverse ordering, matching the autograder’s expectations. We then
+#          refined the printing format and integrated it with our timestamp logic.
+# Prompt: "For my CSE 469 bchoc tool, write a Python show_history function that
+#          reads all blocks, optionally filters by case ID and item ID, supports
+#          -n for the number of entries and -r to reverse the order, and prints
+#          the case, item, state, and ISO 8601 time for each record."
 def show_history(blockchain_file_path, case_id, item_id, num_entries, reverse, password):
     if not password or not check_password(password, roles=OWNER_ROLES):
         print("Invalid password")
@@ -378,6 +405,15 @@ def show_history(blockchain_file_path, case_id, item_id, num_entries, reverse, p
         print("")
 
 
+# Generative AI Used: ChatGPT (OpenAI, November 28, 2025)
+# Purpose: We asked for help designing the verification skeleton that walks the
+#          chain, checks parent hashes, and enforces valid state transitions for
+#          each item. We then tuned the exact error messages and integrated the
+#          specific rules for CHECKEDIN/CHECKEDOUT/REMOVAL required by the spec.
+# Prompt: "Write a verify_blockchain(path) function for my bchoc project that
+#          iterates through each block, verifies prev_hash matches the SHA-256
+#          of the previous block, tracks per-item states, and reports ERROR with
+#          the bad block hash if any invalid transition occurs."
 def verify_blockchain(blockchain_file_path):
     expected_prev_hash = b'\0' * 32
     num_transactions = 0
@@ -445,6 +481,14 @@ def verify_blockchain(blockchain_file_path):
         print(f"Transactions in blockchain: {num_transactions}")
         print("State of blockchain: CLEAN")
 
+
+# Generative AI Used: ChatGPT (OpenAI, November 28, 2025)
+# Purpose: We asked for a skeleton summary function to count per-state totals
+#          (CHECKEDIN, CHECKEDOUT, DISPOSED, etc.) for a given case_id using
+#          collections.defaultdict. We then wired it into our exact output format.
+# Prompt: "Help me write a summary(case_id) function for my bchoc project that
+#          scans all blocks, filters by case ID, tallies how many items end up
+#          in each state, and prints a small text report for the case."
 def show_summary(blockchain_file_path, case_id, password):
     if password is not None and not check_password(password, roles=OWNER_ROLES):
         print("Invalid password", file=sys.stderr)
@@ -466,6 +510,16 @@ def show_summary(blockchain_file_path, case_id, password):
     print(f"Destroyed: {state_counts['DESTROYED']}")
     print(f"Released: {state_counts['RELEASED']}")
 
+
+# Generative AI Used: ChatGPT (OpenAI, November 17, 2025)
+# Purpose: We asked for an argparse *skeleton* with subcommands (init, add,
+#          checkout, checkin, remove, show, verify, summary) and then we
+#          customized argument names, required flags, and the dispatch logic
+#          ourselves to match the project specification exactly.
+# Prompt: "Provide a Python argparse skeleton for a CLI tool called bchoc with
+#          subcommands init, add, checkout, checkin, remove, show (cases/items/
+#          history), verify, and summary, and show how to dispatch to functions
+#          for each command."
 def main():
     blockchain_file = os.environ.get(BCHOC_FILE_PATH_ENV, DEFAULT_BLOCKCHAIN_FILE)
 
