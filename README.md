@@ -13,6 +13,7 @@ Written in **Python 3**, this command-line tool (`bchoc`) supports full evidence
 | Abhinav Ranish             | Developer |
 | Raiden Ison                | Developer |
 | Hansel Kunaseelan Nadar    | Developer |
+| Ismail Wehelie             | Developer |
 
 ---
 
@@ -23,9 +24,9 @@ Written in **Python 3**, this command-line tool (`bchoc`) supports full evidence
 Each operation on evidence (add, check-in, check-out, removal, etc.) is recorded as an **append-only block** in a binary file.  
 This ensures:
 
-- Chronological integrity
-- Detectable tampering (via hash chain)
-- Audit-ready history for each evidence item and case
+- Chronological integrity  
+- Detectable tampering (via hash chain)  
+- Audit-ready history for each evidence item and case  
 
 Internally, case IDs and item IDs are **encrypted (AES)** before being written to the blockchain file.
 
@@ -42,7 +43,7 @@ These environment variables must be set:
 - `BCHOC_PASSWORD_CREATOR` → used for:
   - `add`
   - `remove`
-- Owner roles (any of these can act as “owner”):
+- Owner roles (any of these can act as “owner” for checkin/checkout/history/show/summary when password is required):
   - `BCHOC_PASSWORD_POLICE`
   - `BCHOC_PASSWORD_LAWYER`
   - `BCHOC_PASSWORD_ANALYST`
