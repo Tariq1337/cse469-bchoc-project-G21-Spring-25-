@@ -2,7 +2,6 @@
 
 # CSE 469 Group Project - Group 21
 # Members: Tariq Bahaaaldeen, Abhinav Ranish, Raiden Ison, Hansel Kunaseelan Nadar
-# Description: Main program for Blockchain Chain of Custody.
 
 import os
 import sys
