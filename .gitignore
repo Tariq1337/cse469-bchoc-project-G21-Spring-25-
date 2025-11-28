@@ -1,8 +1,6 @@
-Ignore blockchain database files
-
+# Ignore blockchain database files
 *.db
 
-Ignore Python cache files
-
-pycache/
+# Ignore Python cache files
+__pycache__/
 *.pyc
