@@ -22,7 +22,7 @@ except ImportError:
     print("Error: 'block_helper.py' not found or dependencies missing.", file=sys.stderr)
     sys.exit(1)
 
-# --- Constants ---
+# Constants
 BCHOC_FILE_PATH_ENV = "BCHOC_FILE_PATH"
 DEFAULT_BLOCKCHAIN_FILE = "bchoc.db"
 
@@ -37,7 +37,7 @@ PASSWORD_ENV_VARS = {
 OWNER_ROLES = ["police", "lawyer", "analyst", "executive"]
 REMOVAL_REASONS = ["DISPOSED", "DESTROYED", "RELEASED"]
 
-# --- Helper Functions ---
+# Helper Functions
 
 def check_password(password, roles):
     # Verifies password against environment variables
