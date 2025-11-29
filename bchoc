@@ -52,7 +52,7 @@ def get_role_from_password(password):
     return None
 
 
-# Generative AI Used: ChatGPT (OpenAI, November 16, 2025)
+# Generative AI Used: ChatGPT (OpenAI, November 17, 2025)
 # Purpose: We asked for a skeleton function to iterate through all blocks and
 #          compute the last block’s SHA-256 hash to use as prev_hash for new blocks,
 #          then we adjusted details (like handling the empty-chain case) ourselves.
@@ -84,7 +84,7 @@ def get_last_block_hash(blockchain_file_path):
     return hashlib.sha256(last_block).digest()
 
 
-# Generative AI Used: ChatGPT (OpenAI, November 17, 2025)
+# Generative AI Used: ChatGPT (OpenAI, November 18, 2025)
 # Purpose: We requested a skeleton and guidance for efficiently computing the current
 #          state of an item by scanning encrypted item IDs directly from the header,
 #          instead of fully unpacking every block. We then integrated offsets and
@@ -358,7 +358,7 @@ def show_items(blockchain_file_path, case_id, password):
         print(item)
 
 
-# Generative AI Used: ChatGPT (OpenAI, November 17, 2025)
+# Generative AI Used: ChatGPT (OpenAI, November 19, 2025)
 # Purpose: We asked for a skeleton for the show history feature that supports
 #          filtering by case_id and/or item_id, optional -n limiting, and -r
 #          reverse ordering, matching the autograder’s expectations. We then
@@ -405,7 +405,7 @@ def show_history(blockchain_file_path, case_id, item_id, num_entries, reverse, p
         print("")
 
 
-# Generative AI Used: ChatGPT (OpenAI, November 28, 2025)
+# Generative AI Used: ChatGPT (OpenAI, November 19, 2025)
 # Purpose: We asked for help designing the verification skeleton that walks the
 #          chain, checks parent hashes, and enforces valid state transitions for
 #          each item. We then tuned the exact error messages and integrated the
@@ -482,7 +482,7 @@ def verify_blockchain(blockchain_file_path):
         print("State of blockchain: CLEAN")
 
 
-# Generative AI Used: ChatGPT (OpenAI, November 28, 2025)
+# Generative AI Used: ChatGPT (OpenAI, November 20, 2025)
 # Purpose: We asked for a skeleton summary function to count per-state totals
 #          (CHECKEDIN, CHECKEDOUT, DISPOSED, etc.) for a given case_id using
 #          collections.defaultdict. We then wired it into our exact output format.
@@ -511,7 +511,7 @@ def show_summary(blockchain_file_path, case_id, password):
     print(f"Released: {state_counts['RELEASED']}")
 
 
-# Generative AI Used: ChatGPT (OpenAI, November 17, 2025)
+# Generative AI Used: ChatGPT (OpenAI, November 20, 2025)
 # Purpose: We asked for an argparse *skeleton* with subcommands (init, add,
 #          checkout, checkin, remove, show, verify, summary) and then we
 #          customized argument names, required flags, and the dispatch logic
