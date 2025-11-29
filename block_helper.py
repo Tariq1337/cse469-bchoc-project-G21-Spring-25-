@@ -15,7 +15,7 @@ BLOCK_HEADER_FORMAT = "32s d 32s 32s 12s 12s 12s I"
 BLOCK_HEADER_SIZE = struct.calcsize(BLOCK_HEADER_FORMAT)
 
 
-# Generative AI Used: ChatGPT (OpenAI, November 15, 2025)
+# Generative AI Used: ChatGPT (OpenAI, November 17, 2025)
 # Purpose: Get help drafting the basic AES-ECB encrypt/decrypt helper structure,
 #          including padding strategy and general function skeletons for this project.
 # Prompt: "For a CSE 469 blockchain chain-of-custody project, write simple Python helper
@@ -39,7 +39,7 @@ def decrypt_data(ciphertext):
     return padded_data.lstrip(b'\0')
 
 
-# Generative AI Used: ChatGPT (OpenAI, November 15, 2025)
+# Generative AI Used: ChatGPT (OpenAI, November 17, 2025)
 # Purpose: Help design the struct packing layout and function skeleton for turning a
 #          logical block (prev_hash, timestamp, case_id, item_id, state, creator, owner,
 #          data) into a binary representation that matches the project spec.
@@ -78,7 +78,7 @@ def pack_block(prev_hash, timestamp, case_id_str, item_id_int, state, creator, o
     return header + data
 
 
-# Generative AI Used: ChatGPT (OpenAI, November 15, 2025)
+# Generative AI Used: ChatGPT (OpenAI, November 18, 2025)
 # Purpose: Get assistance with the logic for unpacking a binary block, particularly:
 #          (1) handling the INITIAL (genesis) block without decrypting invalid IDs,
 #          (2) safely decoding encrypted case_id/item_id back to usable values, and
