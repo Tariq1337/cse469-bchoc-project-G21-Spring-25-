@@ -1,80 +1,205 @@
-# 📦 CSE 469 – Blockchain Chain of Custody (`bchoc`)
+CSE 469 – Blockchain Chain of Custody (bchoc)
+Group 21 – Track 1 (Programming Language-Based)
 
-A **Track 1 (Programming Language-Based)** project implementing a secure, file-based blockchain for managing forensic evidence chain of custody.  
-Written in **Python 3**, this command-line tool (`bchoc`) supports full evidence lifecycle management, integrity verification, and audit-ready logging.
+Group Members
 
----
+Tariq Bahaaaldeen – ASU ID: 1223918566
+Abhinav Ranish – ASU ID: 1226800395
+Raiden Ison – ASU ID: 1218779887
+Hansel Kunaseelan Nadar – ASU ID: 1224956915
+Ismail Wehelie – ASU ID: 1224733367
 
-## 👥 Group Members
+Overview
 
-| Name                       | ASU ID     |
-|----------------------------|------------|
-| Tariq Bahaaaldeen          | 1223918566 |
-| Abhinav Ranish             | 1226800395 |
-| Raiden Ison                | 1218779887 |
-| Hansel Kunaseelan Nadar    | 1224956915 |
-| Ismail Wehelie             | 1224733367 |
+This project implements bchoc, a command-line tool that maintains a secure, tamper-evident
+digital chain of custody for forensic evidence. The tool is written in Python 3 and uses a
+single binary blockchain file to record all evidence-related actions.
 
----
+Each operation on an evidence item (adding, checking out, checking in, removing, etc.) is
+recorded as a new block appended to the blockchain file. No blocks are modified in place.
+The hash of each block is used as the prev_hash for the next block, so any change to past
+data can be detected by re-verifying the hash chain.
 
-## 📘 Overview
+Case IDs (UUIDs) and item IDs (integers) are encrypted using AES in ECB mode before being
+stored in the blockchain. This prevents casual inspection of IDs directly from the file.
 
-`bchoc` maintains a **tamper-evident blockchain log** for forensic evidence.
+How the Program Works
 
-Each operation on evidence (add, check-in, check-out, removal, etc.) is recorded as an **append-only block** in a binary file.  
-This ensures:
+The program reads and writes to a single blockchain file whose path is taken from the
+BCHOC_FILE_PATH environment variable. If that variable is not set, the default file name
+is bchoc.db.
 
-- Chronological integrity  
-- Detectable tampering (via hash chain)  
-- Audit-ready history for each evidence item and case  
+The blockchain consists of a sequence of binary blocks. Each block contains:
 
-Internally, case IDs and item IDs are **encrypted (AES)** before being written to the blockchain file.
+prev_hash (32 bytes)
 
----
+timestamp (double)
 
-## 🔧 Implemented Commands & Password Rules
+encrypted case_id (32 bytes, hex-encoded AES)
 
-> Passwords are checked using environment variables, not passed as usernames.
+encrypted item_id (32 bytes, hex-encoded AES)
 
-### Roles & Passwords
+state (12-byte string, e.g., INITIAL, CHECKEDIN, CHECKEDOUT, DISPOSED, DESTROYED, RELEASED)
 
-These environment variables must be set:
+creator (12-byte string)
 
-- `BCHOC_PASSWORD_CREATOR` → used for:
-  - `add`
-  - `remove`
-- Owner roles (any of these can act as “owner” for checkin/checkout/history/show/summary when password is required):
-  - `BCHOC_PASSWORD_POLICE`
-  - `BCHOC_PASSWORD_LAWYER`
-  - `BCHOC_PASSWORD_ANALYST`
-  - `BCHOC_PASSWORD_EXECUTIVE`
+owner (12-byte string)
 
-### Command Summary
+data_len (unsigned int) followed by data bytes
 
-| Command        | Description                                                      | Password Requirement                               |
-|----------------|------------------------------------------------------------------|----------------------------------------------------|
-| `init`         | Create a new blockchain file with an `INITIAL` (genesis) block   | None                                               |
-| `add`          | Add one or more evidence items to a case as `CHECKEDIN`          | **Creator password**                               |
-| `checkout`     | Change an item from `CHECKEDIN` → `CHECKEDOUT`                   | **Owner role password**                            |
-| `checkin`      | Change an item from `CHECKEDOUT` → `CHECKEDIN`                   | **Owner role password**                            |
-| `remove`       | Mark an item as `DISPOSED`, `DESTROYED`, or `RELEASED`           | **Creator password**                               |
-| `show cases`   | List all case IDs present in the blockchain                      | Password optional (if given, must be owner role)   |
-| `show items`   | List all item IDs belonging to a specified case                  | Password optional (if given, must be owner role)   |
-| `show history` | Show chronological history of blocks (optional filters)          | **Owner role password required**                   |
-| `verify`       | Verify the hash chain and logical item state transitions         | None                                               |
-| `summary`      | Show per-state counts of items for a given case                  | Password optional (if given, must be owner role)   |
+The helper module block_helper.py is responsible for:
 
-> **Owner roles** are: POLICE, LAWYER, ANALYST, EXECUTIVE (i.e., any of their passwords).
+encrypting and decrypting case_id and item_id values
 
----
+packing logical fields into the binary block format
 
-## ▶️ How to Build & Run
+unpacking binary blocks back into Python dictionaries
 
-This project is designed for **Linux** (Ubuntu recommended).
+The main bchoc script:
 
-### 1️⃣ Install Dependencies
+parses command-line arguments using argparse subparsers
 
-Python 3 and `pip` must be installed. Dependencies are listed in the `packages` file:
+validates passwords using environment variables for the different roles
 
-```bash
+derives current item state and metadata by scanning the blockchain (no separate database)
+
+appends new blocks for each command while preserving the hash chain
+
+Commands and Passwords
+
+The following environment variables must be set before running the program:
+
+BCHOC_PASSWORD_CREATOR
+
+BCHOC_PASSWORD_POLICE
+
+BCHOC_PASSWORD_LAWYER
+
+BCHOC_PASSWORD_ANALYST
+
+BCHOC_PASSWORD_EXECUTIVE
+
+The "creator" password is used for creating evidence entries and removing items.
+Any of the owner passwords (police, lawyer, analyst, executive) can act as an evidence owner.
+
+Supported commands:
+
+init
+
+Initializes the blockchain file with a single INITIAL (genesis) block if it does not
+already exist. If the file already contains a valid blockchain, nothing is changed.
+
+add
+
+Adds one or more evidence items for a given case.
+
+Each new item is recorded as a CHECKEDIN block.
+
+Requires the creator password.
+
+checkout
+
+Changes an item state from CHECKEDIN to CHECKEDOUT.
+
+Requires an owner role password.
+
+checkin
+
+Changes an item state from CHECKEDOUT back to CHECKEDIN.
+
+Requires an owner role password.
+
+remove
+
+Permanently marks an item as DISPOSED, DESTROYED, or RELEASED.
+
+Only allowed when the item is currently CHECKEDIN.
+
+Requires the creator password.
+
+For RELEASED, an optional owner name may be stored in the data field.
+
+show cases
+
+Lists all unique case IDs in the blockchain (excluding the INITIAL block).
+
+An owner password is optional; if provided, it must be valid.
+
+show items
+
+Lists all unique item IDs for a given case ID.
+
+An owner password is optional; if provided, it must be valid.
+
+show history
+
+Displays the full history of blocks that match an optional case ID and/or item ID.
+
+Supports:
+-n to limit the number of entries
+-r to reverse the order
+
+Requires an owner role password.
+
+verify
+
+Walks the entire blockchain and verifies:
+
+hash-chain integrity (each block’s hash matches the next block’s prev_hash)
+
+legal state transitions for each item (CHECKEDIN/CHECKEDOUT/removal rules)
+
+Prints whether the blockchain is CLEAN or ERROR.
+
+summary
+
+For a given case ID, counts how many unique items end up in each final state:
+CHECKEDIN, CHECKEDOUT, DISPOSED, DESTROYED, RELEASED.
+
+Prints a brief summary report.
+
+An owner password is optional; if provided, it must be valid.
+
+Building and Running
+
+This project targets Python 3 on Linux (Ubuntu recommended).
+
+Install required Python packages:
+
 pip install -r packages
+
+Make the bchoc script executable (if needed):
+
+chmod +x bchoc
+
+Set the necessary environment variables, for example:
+
+export BCHOC_FILE_PATH="chain.db"
+export BCHOC_PASSWORD_CREATOR="C67C"
+export BCHOC_PASSWORD_POLICE="P8BP"
+export BCHOC_PASSWORD_LAWYER="I76L"
+export BCHOC_PASSWORD_ANALYST="A6SA"
+export BCHOC_PASSWORD_EXECUTIVE="E69E"
+
+Run commands such as:
+
+./bchoc init
+./bchoc add -c <case_uuid> -i <item_id> -g <creator_name> -p <creator_password>
+./bchoc checkout -i <item_id> -p <owner_password>
+./bchoc checkin -i <item_id> -p <owner_password>
+./bchoc remove -i <item_id> -y DISPOSED -p <creator_password>
+./bchoc show cases
+./bchoc show items -c <case_uuid>
+./bchoc show history -p <owner_password> [-c <case_uuid>] [-i <item_id>] [-n N] [-r]
+./bchoc verify
+./bchoc summary -c <case_uuid>
+
+Generative AI Acknowledgment
+
+Portions of the code in this project were generated with assistance from ChatGPT, an AI tool
+developed by OpenAI. Code comments in bchoc and block_helper.py identify where generative
+AI was used, describe the purpose of the assistance, and include the original prompts.
+
+Reference:
+OpenAI. (2024). ChatGPT [Large language model].
+openai.com/chatgpt
