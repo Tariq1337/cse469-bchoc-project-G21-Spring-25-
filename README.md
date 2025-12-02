@@ -7,13 +7,13 @@ Written in **Python 3**, this command-line tool (`bchoc`) supports full evidence
 
 ## 👥 Group Members
 
-| Name                       | Role      |
-|----------------------------|-----------|
-| Tariq Bahaaaldeen          | Developer |
-| Abhinav Ranish             | Developer |
-| Raiden Ison                | Developer |
-| Hansel Kunaseelan Nadar    | Developer |
-| Ismail Wehelie             | Developer |
+| Name                       | ASU ID     |
+|----------------------------|------------|
+| Tariq Bahaaaldeen          | 1223918566 |
+| Abhinav Ranish             | 1226800395 |
+| Raiden Ison                | 1218779887 |
+| Hansel Kunaseelan Nadar    | 1224956915 |
+| Ismail Wehelie             | 1224733367 |
 
 ---
 
